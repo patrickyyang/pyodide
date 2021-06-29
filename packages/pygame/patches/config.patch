@@ -1,0 +1,1113 @@
+diff --git a/buildconfig/Setup.SDL2.in b/buildconfig/Setup.SDL2.in
+index 8a6afa15..87d32a71 100644
+--- a/buildconfig/Setup.SDL2.in
++++ b/buildconfig/Setup.SDL2.in
+@@ -30,7 +30,7 @@ font src_c/font.c $(SDL) $(FONT) $(DEBUG)
+ mixer src_c/mixer.c $(SDL) $(MIXER) $(DEBUG)
+ mixer_music src_c/music.c $(SDL) $(MIXER) $(DEBUG)
+ scrap src_c/scrap.c $(SDL) $(SCRAP) $(DEBUG)
+-pypm src_c/pypm.c $(SDL) $(PORTMIDI) $(PORTTIME) $(DEBUG)
++#pypm src_c/pypm.c $(SDL) $(PORTMIDI) $(PORTTIME) $(DEBUG)
+ 
+ _sdl2.sdl2 src_c/_sdl2/sdl2.c $(SDL) $(DEBUG) -Isrc_c
+ _sdl2.audio src_c/_sdl2/audio.c $(SDL) $(DEBUG) -Isrc_c
+diff --git a/buildconfig/Setup_Unix.in b/buildconfig/Setup_Unix.in
+index f69aea08..0617f8ec 100644
+--- a/buildconfig/Setup_Unix.in
++++ b/buildconfig/Setup_Unix.in
+@@ -1,2 +1,2 @@
+ #This file defines platform specific modules for linux
+-_camera src_c/_camera.c src_c/camera_v4l2.c $(SDL) $(DEBUG)
++#_camera src_c/_camera.c src_c/camera_v4l2.c $(SDL) $(DEBUG)
+diff --git a/buildconfig/config.py b/buildconfig/config.py
+index d92c366b..e2344a56 100644
+--- a/buildconfig/config.py
++++ b/buildconfig/config.py
+@@ -135,7 +135,13 @@ def writesetupfile(deps, basepath, additional_lines, sdl2=False):
+         new_lines.extend(additional_lines)
+         lines = new_lines
+         legalVars = set(d.varname for d in deps)
++        if 'PYODIDE' in os.environ:
++            depVars = set({'FONT', 'MIXER', 'PORTTIME', 'SDL', 'FREETYPE', 'IMAGE', 'PNG', 'JPEG', 'PORTMIDI', 'SCRAP'})
++            legalVars =set(['$(' + x + ')' for x in depVars ])
++            for var in depVars:
++                newsetup.write(f'{var} = \n')
+         legalVars.add('$(DEBUG)')
++        print(legalVars)
+ 
+         for line in lines:
+             useit = 1
+@@ -218,11 +224,11 @@ def main(auto=False):
+             logging.info('Backing up existing "Setup" file into Setup.bak')
+             shutil.copyfile(os.path.join(BASE_PATH, 'Setup'), os.path.join(BASE_PATH, 'Setup.bak'))
+ 
+-    deps = CFG.main(**kwds)
++    deps = [] if 'PYODIDE' in os.environ else CFG.main(**kwds)
+     if '-conan' in sys.argv:
+         sys.argv.remove('-conan')
+ 
+-    if deps:
++    if deps or 'PYODIDE' in os.environ:
+         basepath = None
+         for d in deps:
+             prepdep(d, basepath)
+diff --git a/src_c/_freetype.c b/src_c/_freetype.c
+index b124c47e..dd445b6f 100644
+--- a/src_c/_freetype.c
++++ b/src_c/_freetype.c
+@@ -21,6 +21,8 @@
+ #define PYGAME_FREETYPE_INTERNAL
+ #define PYGAME_FREETYPE_FONT_INTERNAL
+ 
++#undef WITH_THREAD_OFF
++
+ #include "freetype.h"
+ 
+ #include "freetype/ft_wrap.h"
+@@ -845,7 +847,7 @@ _ftfont_init(pgFontObject *self, PyObject *args, PyObject *kwds)
+     } else {
+         PyObject *str = 0;
+         PyObject *path = 0;
+-#ifndef WITH_THREAD
++#ifndef WITH_THREAD_OFF
+         goto end;
+ #endif
+         source = pgRWops_FromFileObject(original_file);
+diff --git a/src_c/_pygame.h b/src_c/_pygame.h
+index 95f51277..e278c321 100644
+--- a/src_c/_pygame.h
++++ b/src_c/_pygame.h
+@@ -272,13 +272,15 @@ typedef enum {
+     return RAISE(pgExc_SDLError, "joystick system not initialized")
+ 
+ /* thread check */
+-#ifdef WITH_THREAD
++#undef WITH_THREAD_OFF
++#ifdef WITH_THREAD_OFF
++xxljdlsfjlk
+ #define PG_CHECK_THREADS() (1)
+-#else /* ~WITH_THREAD */
++#else /* ~WITH_THREAD_OFF */
+ #define PG_CHECK_THREADS()                        \
+     (RAISE(PyExc_NotImplementedError,             \
+           "Python built without thread support"))
+-#endif /* ~WITH_THREAD */
++#endif /* ~WITH_THREAD_OFF */
+ 
+ #define PyType_Init(x) (((x).ob_type) = &PyType_Type)
+ 
+diff --git a/src_c/_sdl2/audio.c b/src_c/_sdl2/audio.c
+index 6cc8eb33..f058137b 100644
+--- a/src_c/_sdl2/audio.c
++++ b/src_c/_sdl2/audio.c
+@@ -1099,7 +1099,7 @@ static struct __pyx_vtabstruct__memoryviewslice *__pyx_vtabptr__memoryviewslice;
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNanny = NULL;
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNannyImportAPI(const char *modname);
+   #define __Pyx_RefNannyDeclarations void *__pyx_refnanny = NULL;
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+   #define __Pyx_RefNannySetupContext(name, acquire_gil)\
+           if (acquire_gil) {\
+               PyGILState_STATE __pyx_gilstate_save = PyGILState_Ensure();\
+@@ -2534,7 +2534,7 @@ static void __pyx_f_6pygame_5_sdl2_5audio_recording_cb(void *__pyx_v_userdata, U
+   int __pyx_t_10;
+   PyObject *__pyx_t_11 = NULL;
+   PyObject *__pyx_t_12 = NULL;
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   PyGILState_STATE __pyx_gilstate_save;
+   #endif
+   __Pyx_RefNannySetupContext("recording_cb", 1);
+@@ -2556,7 +2556,7 @@ static void __pyx_f_6pygame_5_sdl2_5audio_recording_cb(void *__pyx_v_userdata, U
+  *         try:
+  */
+     {
+-        #ifdef WITH_THREAD
++        #ifdef WITH_THREAD_OFF
+         PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+         #endif
+         /*try:*/ {
+@@ -2769,13 +2769,13 @@ static void __pyx_f_6pygame_5_sdl2_5audio_recording_cb(void *__pyx_v_userdata, U
+  */
+         /*finally:*/ {
+           /*normal exit:*/{
+-            #ifdef WITH_THREAD
++            #ifdef WITH_THREAD_OFF
+             __Pyx_PyGILState_Release(__pyx_gilstate_save);
+             #endif
+             goto __pyx_L8;
+           }
+           __pyx_L7_error: {
+-            #ifdef WITH_THREAD
++            #ifdef WITH_THREAD_OFF
+             __Pyx_PyGILState_Release(__pyx_gilstate_save);
+             #endif
+             goto __pyx_L4_error;
+@@ -2794,13 +2794,13 @@ static void __pyx_f_6pygame_5_sdl2_5audio_recording_cb(void *__pyx_v_userdata, U
+  */
+   /*finally:*/ {
+     /*normal exit:*/{
+-      #ifdef WITH_THREAD
++      #ifdef WITH_THREAD_OFF
+       __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+       #endif
+       goto __pyx_L5;
+     }
+     __pyx_L4_error: {
+-      #ifdef WITH_THREAD
++      #ifdef WITH_THREAD_OFF
+       __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+       #endif
+       goto __pyx_L1_error;
+@@ -2830,7 +2830,7 @@ static void __pyx_f_6pygame_5_sdl2_5audio_recording_cb(void *__pyx_v_userdata, U
+   __Pyx_WriteUnraisable("pygame._sdl2.audio.recording_cb", __pyx_clineno, __pyx_lineno, __pyx_filename, 1, 1);
+   __pyx_L0:;
+   __PYX_XDEC_MEMVIEW(&__pyx_v_a_memoryview, 0);
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   __Pyx_PyGILState_Release(__pyx_gilstate_save);
+   #endif
+ }
+@@ -12691,11 +12691,11 @@ static int __pyx_memoryview_slice_memviewslice(__Pyx_memviewslice *__pyx_v_dst,
+   /* function exit code */
+   __pyx_L1_error:;
+   {
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+     #endif
+     __Pyx_AddTraceback("View.MemoryView.slice_memviewslice", __pyx_clineno, __pyx_lineno, __pyx_filename);
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     __Pyx_PyGILState_Release(__pyx_gilstate_save);
+     #endif
+   }
+@@ -13168,11 +13168,11 @@ static int __pyx_memslice_transpose(__Pyx_memviewslice *__pyx_v_memslice) {
+   /* function exit code */
+   __pyx_L1_error:;
+   {
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+     #endif
+     __Pyx_AddTraceback("View.MemoryView.transpose_memslice", __pyx_clineno, __pyx_lineno, __pyx_filename);
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     __Pyx_PyGILState_Release(__pyx_gilstate_save);
+     #endif
+   }
+@@ -15293,11 +15293,11 @@ static void *__pyx_memoryview_copy_data_to_temp(__Pyx_memviewslice *__pyx_v_src,
+   /* function exit code */
+   __pyx_L1_error:;
+   {
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+     #endif
+     __Pyx_AddTraceback("View.MemoryView.copy_data_to_temp", __pyx_clineno, __pyx_lineno, __pyx_filename);
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     __Pyx_PyGILState_Release(__pyx_gilstate_save);
+     #endif
+   }
+@@ -15321,7 +15321,7 @@ static int __pyx_memoryview_err_extents(int __pyx_v_i, Py_ssize_t __pyx_v_extent
+   PyObject *__pyx_t_2 = NULL;
+   PyObject *__pyx_t_3 = NULL;
+   PyObject *__pyx_t_4 = NULL;
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+   #endif
+   __Pyx_RefNannySetupContext("_err_extents", 0);
+@@ -15385,7 +15385,7 @@ static int __pyx_memoryview_err_extents(int __pyx_v_i, Py_ssize_t __pyx_v_extent
+   __Pyx_AddTraceback("View.MemoryView._err_extents", __pyx_clineno, __pyx_lineno, __pyx_filename);
+   __pyx_r = -1;
+   __Pyx_RefNannyFinishContext();
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   __Pyx_PyGILState_Release(__pyx_gilstate_save);
+   #endif
+   return __pyx_r;
+@@ -15406,7 +15406,7 @@ static int __pyx_memoryview_err_dim(PyObject *__pyx_v_error, char *__pyx_v_msg,
+   PyObject *__pyx_t_2 = NULL;
+   PyObject *__pyx_t_3 = NULL;
+   PyObject *__pyx_t_4 = NULL;
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+   #endif
+   __Pyx_RefNannySetupContext("_err_dim", 0);
+@@ -15466,7 +15466,7 @@ static int __pyx_memoryview_err_dim(PyObject *__pyx_v_error, char *__pyx_v_msg,
+   __pyx_r = -1;
+   __Pyx_XDECREF(__pyx_v_error);
+   __Pyx_RefNannyFinishContext();
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   __Pyx_PyGILState_Release(__pyx_gilstate_save);
+   #endif
+   return __pyx_r;
+@@ -15488,7 +15488,7 @@ static int __pyx_memoryview_err(PyObject *__pyx_v_error, char *__pyx_v_msg) {
+   PyObject *__pyx_t_3 = NULL;
+   PyObject *__pyx_t_4 = NULL;
+   PyObject *__pyx_t_5 = NULL;
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+   #endif
+   __Pyx_RefNannySetupContext("_err", 0);
+@@ -15573,7 +15573,7 @@ static int __pyx_memoryview_err(PyObject *__pyx_v_error, char *__pyx_v_msg) {
+   __pyx_r = -1;
+   __Pyx_XDECREF(__pyx_v_error);
+   __Pyx_RefNannyFinishContext();
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   __Pyx_PyGILState_Release(__pyx_gilstate_save);
+   #endif
+   return __pyx_r;
+@@ -16142,11 +16142,11 @@ static int __pyx_memoryview_copy_contents(__Pyx_memviewslice __pyx_v_src, __Pyx_
+   /* function exit code */
+   __pyx_L1_error:;
+   {
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+     #endif
+     __Pyx_AddTraceback("View.MemoryView.memoryview_copy_contents", __pyx_clineno, __pyx_lineno, __pyx_filename);
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     __Pyx_PyGILState_Release(__pyx_gilstate_save);
+     #endif
+   }
+@@ -16328,7 +16328,7 @@ static void __pyx_memoryview_refcount_copying(__Pyx_memviewslice *__pyx_v_dst, i
+ 
+ static void __pyx_memoryview_refcount_objects_in_slice_with_gil(char *__pyx_v_data, Py_ssize_t *__pyx_v_shape, Py_ssize_t *__pyx_v_strides, int __pyx_v_ndim, int __pyx_v_inc) {
+   __Pyx_RefNannyDeclarations
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+   #endif
+   __Pyx_RefNannySetupContext("refcount_objects_in_slice_with_gil", 0);
+@@ -16352,7 +16352,7 @@ static void __pyx_memoryview_refcount_objects_in_slice_with_gil(char *__pyx_v_da
+ 
+   /* function exit code */
+   __Pyx_RefNannyFinishContext();
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   __Pyx_PyGILState_Release(__pyx_gilstate_save);
+   #endif
+ }
+@@ -19071,7 +19071,7 @@ if (!__Pyx_RefNanny) {
+   /*--- Library function declarations ---*/
+   /*--- Threads initialization code ---*/
+   #if defined(__PYX_FORCE_INIT_THREADS) && __PYX_FORCE_INIT_THREADS
+-  #ifdef WITH_THREAD /* Python build with threading support? */
++  #ifdef WITH_THREAD_OFF /* Python build with threading support? */
+   PyEval_InitThreads();
+   #endif
+   #endif
+@@ -20734,7 +20734,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+     PyObject *old_exc, *old_val, *old_tb;
+     PyObject *ctx;
+     __Pyx_PyThreadState_declare
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_STATE state;
+     if (nogil)
+         state = PyGILState_Ensure();
+@@ -20763,7 +20763,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+         PyErr_WriteUnraisable(ctx);
+         Py_DECREF(ctx);
+     }
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     if (nogil)
+         PyGILState_Release(state);
+ #endif
+diff --git a/src_c/_sdl2/controller.c b/src_c/_sdl2/controller.c
+index 9451c790..99405587 100644
+--- a/src_c/_sdl2/controller.c
++++ b/src_c/_sdl2/controller.c
+@@ -856,7 +856,7 @@ struct __pyx_obj_6pygame_5_sdl2_10controller_Controller {
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNanny = NULL;
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNannyImportAPI(const char *modname);
+   #define __Pyx_RefNannyDeclarations void *__pyx_refnanny = NULL;
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+   #define __Pyx_RefNannySetupContext(name, acquire_gil)\
+           if (acquire_gil) {\
+               PyGILState_STATE __pyx_gilstate_save = PyGILState_Ensure();\
+@@ -5201,7 +5201,7 @@ if (!__Pyx_RefNanny) {
+   /*--- Library function declarations ---*/
+   /*--- Threads initialization code ---*/
+   #if defined(__PYX_FORCE_INIT_THREADS) && __PYX_FORCE_INIT_THREADS
+-  #ifdef WITH_THREAD /* Python build with threading support? */
++  #ifdef WITH_THREAD_OFF /* Python build with threading support? */
+   PyEval_InitThreads();
+   #endif
+   #endif
+@@ -6065,7 +6065,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+     PyObject *old_exc, *old_val, *old_tb;
+     PyObject *ctx;
+     __Pyx_PyThreadState_declare
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_STATE state;
+     if (nogil)
+         state = PyGILState_Ensure();
+@@ -6094,7 +6094,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+         PyErr_WriteUnraisable(ctx);
+         Py_DECREF(ctx);
+     }
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     if (nogil)
+         PyGILState_Release(state);
+ #endif
+diff --git a/src_c/_sdl2/mixer.c b/src_c/_sdl2/mixer.c
+index 6f0c5ba1..c1f90116 100644
+--- a/src_c/_sdl2/mixer.c
++++ b/src_c/_sdl2/mixer.c
+@@ -1106,7 +1106,7 @@ static struct __pyx_vtabstruct__memoryviewslice *__pyx_vtabptr__memoryviewslice;
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNanny = NULL;
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNannyImportAPI(const char *modname);
+   #define __Pyx_RefNannyDeclarations void *__pyx_refnanny = NULL;
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+   #define __Pyx_RefNannySetupContext(name, acquire_gil)\
+           if (acquire_gil) {\
+               PyGILState_STATE __pyx_gilstate_save = PyGILState_Ensure();\
+@@ -2134,7 +2134,7 @@ static void __pyx_f_6pygame_5_sdl2_5mixer_recording_cb(void *__pyx_v_userdata, U
+   int __pyx_t_10;
+   PyObject *__pyx_t_11 = NULL;
+   PyObject *__pyx_t_12 = NULL;
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   PyGILState_STATE __pyx_gilstate_save;
+   #endif
+   __Pyx_RefNannySetupContext("recording_cb", 1);
+@@ -2156,7 +2156,7 @@ static void __pyx_f_6pygame_5_sdl2_5mixer_recording_cb(void *__pyx_v_userdata, U
+  *         try:
+  */
+     {
+-        #ifdef WITH_THREAD
++        #ifdef WITH_THREAD_OFF
+         PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+         #endif
+         /*try:*/ {
+@@ -2369,13 +2369,13 @@ static void __pyx_f_6pygame_5_sdl2_5mixer_recording_cb(void *__pyx_v_userdata, U
+  */
+         /*finally:*/ {
+           /*normal exit:*/{
+-            #ifdef WITH_THREAD
++            #ifdef WITH_THREAD_OFF
+             __Pyx_PyGILState_Release(__pyx_gilstate_save);
+             #endif
+             goto __pyx_L8;
+           }
+           __pyx_L7_error: {
+-            #ifdef WITH_THREAD
++            #ifdef WITH_THREAD_OFF
+             __Pyx_PyGILState_Release(__pyx_gilstate_save);
+             #endif
+             goto __pyx_L4_error;
+@@ -2394,13 +2394,13 @@ static void __pyx_f_6pygame_5_sdl2_5mixer_recording_cb(void *__pyx_v_userdata, U
+  */
+   /*finally:*/ {
+     /*normal exit:*/{
+-      #ifdef WITH_THREAD
++      #ifdef WITH_THREAD_OFF
+       __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+       #endif
+       goto __pyx_L5;
+     }
+     __pyx_L4_error: {
+-      #ifdef WITH_THREAD
++      #ifdef WITH_THREAD_OFF
+       __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+       #endif
+       goto __pyx_L1_error;
+@@ -2430,7 +2430,7 @@ static void __pyx_f_6pygame_5_sdl2_5mixer_recording_cb(void *__pyx_v_userdata, U
+   __Pyx_WriteUnraisable("pygame._sdl2.mixer.recording_cb", __pyx_clineno, __pyx_lineno, __pyx_filename, 1, 1);
+   __pyx_L0:;
+   __PYX_XDEC_MEMVIEW(&__pyx_v_a_memoryview, 0);
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   __Pyx_PyGILState_Release(__pyx_gilstate_save);
+   #endif
+ }
+@@ -11331,11 +11331,11 @@ static int __pyx_memoryview_slice_memviewslice(__Pyx_memviewslice *__pyx_v_dst,
+   /* function exit code */
+   __pyx_L1_error:;
+   {
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+     #endif
+     __Pyx_AddTraceback("View.MemoryView.slice_memviewslice", __pyx_clineno, __pyx_lineno, __pyx_filename);
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     __Pyx_PyGILState_Release(__pyx_gilstate_save);
+     #endif
+   }
+@@ -11808,11 +11808,11 @@ static int __pyx_memslice_transpose(__Pyx_memviewslice *__pyx_v_memslice) {
+   /* function exit code */
+   __pyx_L1_error:;
+   {
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+     #endif
+     __Pyx_AddTraceback("View.MemoryView.transpose_memslice", __pyx_clineno, __pyx_lineno, __pyx_filename);
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     __Pyx_PyGILState_Release(__pyx_gilstate_save);
+     #endif
+   }
+@@ -13933,11 +13933,11 @@ static void *__pyx_memoryview_copy_data_to_temp(__Pyx_memviewslice *__pyx_v_src,
+   /* function exit code */
+   __pyx_L1_error:;
+   {
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+     #endif
+     __Pyx_AddTraceback("View.MemoryView.copy_data_to_temp", __pyx_clineno, __pyx_lineno, __pyx_filename);
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     __Pyx_PyGILState_Release(__pyx_gilstate_save);
+     #endif
+   }
+@@ -13961,7 +13961,7 @@ static int __pyx_memoryview_err_extents(int __pyx_v_i, Py_ssize_t __pyx_v_extent
+   PyObject *__pyx_t_2 = NULL;
+   PyObject *__pyx_t_3 = NULL;
+   PyObject *__pyx_t_4 = NULL;
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+   #endif
+   __Pyx_RefNannySetupContext("_err_extents", 0);
+@@ -14025,7 +14025,7 @@ static int __pyx_memoryview_err_extents(int __pyx_v_i, Py_ssize_t __pyx_v_extent
+   __Pyx_AddTraceback("View.MemoryView._err_extents", __pyx_clineno, __pyx_lineno, __pyx_filename);
+   __pyx_r = -1;
+   __Pyx_RefNannyFinishContext();
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   __Pyx_PyGILState_Release(__pyx_gilstate_save);
+   #endif
+   return __pyx_r;
+@@ -14046,7 +14046,7 @@ static int __pyx_memoryview_err_dim(PyObject *__pyx_v_error, char *__pyx_v_msg,
+   PyObject *__pyx_t_2 = NULL;
+   PyObject *__pyx_t_3 = NULL;
+   PyObject *__pyx_t_4 = NULL;
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+   #endif
+   __Pyx_RefNannySetupContext("_err_dim", 0);
+@@ -14106,7 +14106,7 @@ static int __pyx_memoryview_err_dim(PyObject *__pyx_v_error, char *__pyx_v_msg,
+   __pyx_r = -1;
+   __Pyx_XDECREF(__pyx_v_error);
+   __Pyx_RefNannyFinishContext();
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   __Pyx_PyGILState_Release(__pyx_gilstate_save);
+   #endif
+   return __pyx_r;
+@@ -14128,7 +14128,7 @@ static int __pyx_memoryview_err(PyObject *__pyx_v_error, char *__pyx_v_msg) {
+   PyObject *__pyx_t_3 = NULL;
+   PyObject *__pyx_t_4 = NULL;
+   PyObject *__pyx_t_5 = NULL;
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+   #endif
+   __Pyx_RefNannySetupContext("_err", 0);
+@@ -14213,7 +14213,7 @@ static int __pyx_memoryview_err(PyObject *__pyx_v_error, char *__pyx_v_msg) {
+   __pyx_r = -1;
+   __Pyx_XDECREF(__pyx_v_error);
+   __Pyx_RefNannyFinishContext();
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   __Pyx_PyGILState_Release(__pyx_gilstate_save);
+   #endif
+   return __pyx_r;
+@@ -14782,11 +14782,11 @@ static int __pyx_memoryview_copy_contents(__Pyx_memviewslice __pyx_v_src, __Pyx_
+   /* function exit code */
+   __pyx_L1_error:;
+   {
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+     #endif
+     __Pyx_AddTraceback("View.MemoryView.memoryview_copy_contents", __pyx_clineno, __pyx_lineno, __pyx_filename);
+-    #ifdef WITH_THREAD
++    #ifdef WITH_THREAD_OFF
+     __Pyx_PyGILState_Release(__pyx_gilstate_save);
+     #endif
+   }
+@@ -14968,7 +14968,7 @@ static void __pyx_memoryview_refcount_copying(__Pyx_memviewslice *__pyx_v_dst, i
+ 
+ static void __pyx_memoryview_refcount_objects_in_slice_with_gil(char *__pyx_v_data, Py_ssize_t *__pyx_v_shape, Py_ssize_t *__pyx_v_strides, int __pyx_v_ndim, int __pyx_v_inc) {
+   __Pyx_RefNannyDeclarations
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   PyGILState_STATE __pyx_gilstate_save = __Pyx_PyGILState_Ensure();
+   #endif
+   __Pyx_RefNannySetupContext("refcount_objects_in_slice_with_gil", 0);
+@@ -14992,7 +14992,7 @@ static void __pyx_memoryview_refcount_objects_in_slice_with_gil(char *__pyx_v_da
+ 
+   /* function exit code */
+   __Pyx_RefNannyFinishContext();
+-  #ifdef WITH_THREAD
++  #ifdef WITH_THREAD_OFF
+   __Pyx_PyGILState_Release(__pyx_gilstate_save);
+   #endif
+ }
+@@ -17590,7 +17590,7 @@ if (!__Pyx_RefNanny) {
+   /*--- Library function declarations ---*/
+   /*--- Threads initialization code ---*/
+   #if defined(__PYX_FORCE_INIT_THREADS) && __PYX_FORCE_INIT_THREADS
+-  #ifdef WITH_THREAD /* Python build with threading support? */
++  #ifdef WITH_THREAD_OFF /* Python build with threading support? */
+   PyEval_InitThreads();
+   #endif
+   #endif
+@@ -18519,7 +18519,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+     PyObject *old_exc, *old_val, *old_tb;
+     PyObject *ctx;
+     __Pyx_PyThreadState_declare
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_STATE state;
+     if (nogil)
+         state = PyGILState_Ensure();
+@@ -18548,7 +18548,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+         PyErr_WriteUnraisable(ctx);
+         Py_DECREF(ctx);
+     }
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     if (nogil)
+         PyGILState_Release(state);
+ #endif
+diff --git a/src_c/_sdl2/sdl2.c b/src_c/_sdl2/sdl2.c
+index 0b5f5528..671ad4bd 100644
+--- a/src_c/_sdl2/sdl2.c
++++ b/src_c/_sdl2/sdl2.c
+@@ -14,6 +14,7 @@
+ END: Cython Metadata */
+ 
+ #define PY_SSIZE_T_CLEAN
++#undef WITH_THREAD_OFF
+ #include "Python.h"
+ #ifndef Py_PYTHON_H
+     #error Python headers needed to compile C extensions, please install development version of Python.
+@@ -839,7 +840,7 @@ static const char *__pyx_f[] = {
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNanny = NULL;
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNannyImportAPI(const char *modname);
+   #define __Pyx_RefNannyDeclarations void *__pyx_refnanny = NULL;
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+   #define __Pyx_RefNannySetupContext(name, acquire_gil)\
+           if (acquire_gil) {\
+               PyGILState_STATE __pyx_gilstate_save = PyGILState_Ensure();\
+@@ -1932,7 +1933,7 @@ if (!__Pyx_RefNanny) {
+   /*--- Library function declarations ---*/
+   /*--- Threads initialization code ---*/
+   #if defined(__PYX_FORCE_INIT_THREADS) && __PYX_FORCE_INIT_THREADS
+-  #ifdef WITH_THREAD /* Python build with threading support? */
++  #ifdef WITH_THREAD_OFF /* Python build with threading support? */
+   PyEval_InitThreads();
+   #endif
+   #endif
+diff --git a/src_c/_sdl2/video.c b/src_c/_sdl2/video.c
+index 9dda7b22..7a28dbad 100644
+--- a/src_c/_sdl2/video.c
++++ b/src_c/_sdl2/video.c
+@@ -1058,7 +1058,7 @@ static struct __pyx_vtabstruct_6pygame_5_sdl2_5video_Image *__pyx_vtabptr_6pygam
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNanny = NULL;
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNannyImportAPI(const char *modname);
+   #define __Pyx_RefNannyDeclarations void *__pyx_refnanny = NULL;
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+   #define __Pyx_RefNannySetupContext(name, acquire_gil)\
+           if (acquire_gil) {\
+               PyGILState_STATE __pyx_gilstate_save = PyGILState_Ensure();\
+@@ -20695,7 +20695,7 @@ if (!__Pyx_RefNanny) {
+   /*--- Library function declarations ---*/
+   /*--- Threads initialization code ---*/
+   #if defined(__PYX_FORCE_INIT_THREADS) && __PYX_FORCE_INIT_THREADS
+-  #ifdef WITH_THREAD /* Python build with threading support? */
++  #ifdef WITH_THREAD_OFF /* Python build with threading support? */
+   PyEval_InitThreads();
+   #endif
+   #endif
+@@ -22820,7 +22820,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+     PyObject *old_exc, *old_val, *old_tb;
+     PyObject *ctx;
+     __Pyx_PyThreadState_declare
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_STATE state;
+     if (nogil)
+         state = PyGILState_Ensure();
+@@ -22849,7 +22849,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+         PyErr_WriteUnraisable(ctx);
+         Py_DECREF(ctx);
+     }
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     if (nogil)
+         PyGILState_Release(state);
+ #endif
+diff --git a/src_c/_sprite.c b/src_c/_sprite.c
+index 40a2f803..f51ca973 100644
+--- a/src_c/_sprite.c
++++ b/src_c/_sprite.c
+@@ -13,6 +13,7 @@
+ }
+ END: Cython Metadata */
+ 
++#undef WITH_THREAD_OFF
+ #define PY_SSIZE_T_CLEAN
+ #include "Python.h"
+ #ifndef Py_PYTHON_H
+@@ -1289,7 +1290,7 @@ static struct __pyx_vtabstruct_6pygame_7_sprite_GroupSingle *__pyx_vtabptr_6pyga
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNanny = NULL;
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNannyImportAPI(const char *modname);
+   #define __Pyx_RefNannyDeclarations void *__pyx_refnanny = NULL;
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+   #define __Pyx_RefNannySetupContext(name, acquire_gil)\
+           if (acquire_gil) {\
+               PyGILState_STATE __pyx_gilstate_save = PyGILState_Ensure();\
+@@ -26993,7 +26994,7 @@ if (!__Pyx_RefNanny) {
+   /*--- Library function declarations ---*/
+   /*--- Threads initialization code ---*/
+   #if defined(__PYX_FORCE_INIT_THREADS) && __PYX_FORCE_INIT_THREADS
+-  #ifdef WITH_THREAD /* Python build with threading support? */
++  #ifdef WITH_THREAD_OFF /* Python build with threading support? */
+   PyEval_InitThreads();
+   #endif
+   #endif
+@@ -28119,7 +28120,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+     PyObject *old_exc, *old_val, *old_tb;
+     PyObject *ctx;
+     __Pyx_PyThreadState_declare
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_STATE state;
+     if (nogil)
+         state = PyGILState_Ensure();
+@@ -28148,7 +28149,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+         PyErr_WriteUnraisable(ctx);
+         Py_DECREF(ctx);
+     }
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     if (nogil)
+         PyGILState_Release(state);
+ #endif
+diff --git a/src_c/base.c b/src_c/base.c
+index 80e94158..f8ed4bc9 100644
+--- a/src_c/base.c
++++ b/src_c/base.c
+@@ -277,7 +277,7 @@ pg_init(PyObject *self, PyObject *args)
+     }
+ 
+     /*nice to initialize timer, so startup time will reflec pg_init() time*/
+-#if defined(WITH_THREAD) && !defined(MS_WIN32) && defined(SDL_INIT_EVENTTHREAD)
++#if defined(WITH_THREAD_OFF) && !defined(MS_WIN32) && defined(SDL_INIT_EVENTTHREAD)
+     pg_sdl_was_init = SDL_Init(SDL_INIT_EVENTTHREAD | SDL_INIT_TIMER |
+                                SDL_INIT_NOPARACHUTE) == 0;
+ #else
+diff --git a/src_c/fastevent.c b/src_c/fastevent.c
+index 39f794b0..af518825 100644
+--- a/src_c/fastevent.c
++++ b/src_c/fastevent.c
+@@ -55,7 +55,7 @@ fastevent_init(PyObject *self, PyObject *args)
+ {
+     VIDEO_INIT_CHECK();
+ 
+-#ifndef WITH_THREAD
++#ifndef WITH_THREAD_OFF
+     return RAISE(pgExc_SDLError,
+                  "pygame.fastevent requires a threaded Python");
+ #else
+@@ -68,7 +68,7 @@ fastevent_init(PyObject *self, PyObject *args)
+     }
+ 
+     Py_RETURN_NONE;
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ }
+ 
+ static PyObject *
+diff --git a/src_c/imageext.c b/src_c/imageext.c
+index b588e7bd..97a35a36 100644
+--- a/src_c/imageext.c
++++ b/src_c/imageext.c
+@@ -67,9 +67,9 @@
+ 
+ #define JPEG_QUALITY 85
+ 
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+ static SDL_mutex *_pg_img_mutex = 0;
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ 
+ #ifdef WIN32
+ 
+@@ -127,7 +127,7 @@ image_load_ext(PyObject *self, PyObject *arg)
+     }
+     if (oencoded != Py_None) {
+         name = Bytes_AS_STRING(oencoded);
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+         namelen = Bytes_GET_SIZE(oencoded);
+         Py_BEGIN_ALLOW_THREADS;
+         if (namelen > 4 && !strcasecmp(name + namelen - 4, ".gif")) {
+@@ -140,15 +140,15 @@ image_load_ext(PyObject *self, PyObject *arg)
+             surf = IMG_Load(name);
+         }
+         Py_END_ALLOW_THREADS;
+-#else /* ~WITH_THREAD */
++#else /* ~WITH_THREAD_OFF */
+         surf = IMG_Load(name);
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+         Py_DECREF(oencoded);
+     }
+     else {
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+         int lock_mutex = 0;
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+         Py_DECREF(oencoded);
+         oencoded = NULL;
+ #if PY2
+@@ -192,12 +192,12 @@ image_load_ext(PyObject *self, PyObject *arg)
+                 return PyErr_NoMemory();
+             }
+             strcpy(ext, cext);
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+             lock_mutex = !strcasecmp(ext, "gif");
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+         }
+         Py_XDECREF(oencoded);
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+         Py_BEGIN_ALLOW_THREADS;
+         if (lock_mutex) {
+             /* using multiple threads does not work for (at least) SDL_image <= 2.0.4 */
+@@ -209,9 +209,9 @@ image_load_ext(PyObject *self, PyObject *arg)
+             surf = IMG_LoadTyped_RW(rw, 1, ext);
+         }
+         Py_END_ALLOW_THREADS;
+-#else /* ~WITH_THREAD */
++#else /* ~WITH_THREAD_OFF */
+         surf = IMG_LoadTyped_RW(rw, 1, ext);
+-#endif /* ~WITH_THREAD */
++#endif /* ~WITH_THREAD_OFF */
+         PyMem_Free(ext);
+     }
+ 
+@@ -962,7 +962,7 @@ image_get_sdl_image_version(PyObject *self, PyObject *arg)
+             SDL_IMAGE_MINOR_VERSION, SDL_IMAGE_PATCHLEVEL);
+ }
+ 
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+ #if PY3
+ static void
+ _imageext_free(void *ptr)
+@@ -982,7 +982,7 @@ _imageext_free(void)
+     }
+ }
+ #endif /* PY2 */
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ 
+ static PyMethodDef _imageext_methods[] = {
+     {"load_extended", image_load_ext, METH_VARARGS, DOC_PYGAMEIMAGE},
+@@ -1006,11 +1006,11 @@ MODINIT_DEFINE(imageext)
+                                          NULL,
+                                          NULL,
+                                          NULL,
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+                                          _imageext_free};
+-#else /* ~WITH_THREAD */
++#else /* ~WITH_THREAD_OFF */
+                                          0};
+-#endif /* ~WITH_THREAD */
++#endif /* ~WITH_THREAD_OFF */
+ #endif
+ 
+     /* imported needed apis; Do this first so if there is an error
+@@ -1030,7 +1030,7 @@ MODINIT_DEFINE(imageext)
+         MODINIT_ERROR;
+     }
+ 
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+ #if PY2
+     if (Py_AtExit(_imageext_free)) {
+         MODINIT_ERROR;
+@@ -1041,7 +1041,7 @@ MODINIT_DEFINE(imageext)
+         PyErr_SetString(pgExc_SDLError, SDL_GetError());
+         MODINIT_ERROR;
+     }
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ 
+     /* create the module */
+ #if PY3
+diff --git a/src_c/pygame.h b/src_c/pygame.h
+index d7eaf739..c88c64fd 100644
+--- a/src_c/pygame.h
++++ b/src_c/pygame.h
+@@ -29,4 +29,6 @@
+ #define PYGAME_H
+ #include "_pygame.h"
+ 
++#undef WITH_THREAD_OFF
++
+ #endif /* ~PYGAME_INTERNAL_H */
+diff --git a/src_c/pypm.c b/src_c/pypm.c
+index 8c86744c..a41eacca 100644
+--- a/src_c/pypm.c
++++ b/src_c/pypm.c
+@@ -13,6 +13,8 @@
+ }
+ END: Cython Metadata */
+ 
++#undef WITH_THREAD_OFF
++
+ #define PY_SSIZE_T_CLEAN
+ #include "Python.h"
+ #ifndef Py_PYTHON_H
+@@ -884,7 +886,7 @@ struct __pyx_obj_6pygame_4pypm_Input {
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNanny = NULL;
+   static __Pyx_RefNannyAPIStruct *__Pyx_RefNannyImportAPI(const char *modname);
+   #define __Pyx_RefNannyDeclarations void *__pyx_refnanny = NULL;
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+   #define __Pyx_RefNannySetupContext(name, acquire_gil)\
+           if (acquire_gil) {\
+               PyGILState_STATE __pyx_gilstate_save = PyGILState_Ensure();\
+@@ -6999,7 +7001,7 @@ if (!__Pyx_RefNanny) {
+   /*--- Library function declarations ---*/
+   /*--- Threads initialization code ---*/
+   #if defined(__PYX_FORCE_INIT_THREADS) && __PYX_FORCE_INIT_THREADS
+-  #ifdef WITH_THREAD /* Python build with threading support? */
++  #ifdef WITH_THREAD_OFF /* Python build with threading support? */
+   PyEval_InitThreads();
+   #endif
+   #endif
+@@ -8228,7 +8230,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+     PyObject *old_exc, *old_val, *old_tb;
+     PyObject *ctx;
+     __Pyx_PyThreadState_declare
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_STATE state;
+     if (nogil)
+         state = PyGILState_Ensure();
+@@ -8257,7 +8259,7 @@ static void __Pyx_WriteUnraisable(const char *name, CYTHON_UNUSED int clineno,
+         PyErr_WriteUnraisable(ctx);
+         Py_DECREF(ctx);
+     }
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     if (nogil)
+         PyGILState_Release(state);
+ #endif
+diff --git a/src_c/rwobject.c b/src_c/rwobject.c
+index 6e2ab40f..2e3a0a15 100644
+--- a/src_c/rwobject.c
++++ b/src_c/rwobject.c
+@@ -323,15 +323,15 @@ _pg_rw_size(SDL_RWops *context)
+     PyObject *tmp = NULL;
+     Sint64 size;
+     Sint64 retval = -1;
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_STATE state;
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ 
+     if (!helper->seek || !helper->tell)
+         return retval;
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     state = PyGILState_Ensure();
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ 
+     /* Current file position; need to restore it later.
+      */
+@@ -381,7 +381,7 @@ end:
+      */
+     Py_XDECREF(pos);
+     Py_XDECREF(tmp);
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_Release(state);
+ #endif
+     return retval;
+@@ -396,7 +396,7 @@ static size_t
+ _pg_rw_write(SDL_RWops *context, const void *ptr, size_t size, size_t num)
+ #endif /* IS_SDLv2 */
+ {
+-#ifndef WITH_THREAD
++#ifndef WITH_THREAD_OFF
+     pgRWHelper *helper = (pgRWHelper *)context->hidden.unknown.data1;
+     PyObject *result;
+ 
+@@ -413,7 +413,7 @@ _pg_rw_write(SDL_RWops *context, const void *ptr, size_t size, size_t num)
+ 
+     Py_DECREF(result);
+     return num;
+-#else /* WITH_THREAD */
++#else /* WITH_THREAD_OFF */
+     pgRWHelper *helper = (pgRWHelper *)context->hidden.unknown.data1;
+     PyObject *result;
+     size_t retval;
+@@ -440,7 +440,7 @@ _pg_rw_write(SDL_RWops *context, const void *ptr, size_t size, size_t num)
+ end:
+     PyGILState_Release(state);
+     return retval;
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ }
+ 
+ static int
+@@ -449,10 +449,10 @@ _pg_rw_close(SDL_RWops *context)
+     pgRWHelper *helper = (pgRWHelper *)context->hidden.unknown.data1;
+     PyObject *result;
+     int retval = 0;
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_STATE state;
+     state = PyGILState_Ensure();
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ 
+     if (helper->close) {
+         result = PyObject_CallFunction(helper->close, NULL);
+@@ -471,9 +471,9 @@ _pg_rw_close(SDL_RWops *context)
+     Py_XDECREF(helper->file);
+ 
+     PyMem_Del(helper);
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_Release(state);
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+     SDL_FreeRW(context);
+     return retval;
+ }
+@@ -518,9 +518,9 @@ pgRWops_FromFileObject(PyObject *obj)
+     rw->write = _pg_rw_write;
+     rw->close = _pg_rw_close;
+ 
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyEval_InitThreads();
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ 
+     return rw;
+ }
+@@ -530,9 +530,9 @@ pgRWops_ReleaseObject(SDL_RWops *context)
+ {
+     int ret = 0;
+     if (pgRWops_IsFileObject(context)) {
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+         PyGILState_STATE state = PyGILState_Ensure();
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ 
+         pgRWHelper *helper = (pgRWHelper *)context->hidden.unknown.data1;
+         PyObject *fileobj = helper->file;
+@@ -557,9 +557,9 @@ pgRWops_ReleaseObject(SDL_RWops *context)
+             }
+         }
+ 
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+         PyGILState_Release(state);
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+     }
+     else {
+         ret = SDL_RWclose(context);
+@@ -584,7 +584,7 @@ _pg_rw_seek(SDL_RWops *context, Sint64 offset, int whence)
+     PyObject *result;
+     Sint64 retval;
+ #endif /* IS_SDLv2 */
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_STATE state;
+ 
+     if (helper->fileno != -1) {
+@@ -622,7 +622,7 @@ end:
+     PyGILState_Release(state);
+ 
+     return retval;
+-#else /* ~WITH_THREAD */
++#else /* ~WITH_THREAD_OFF */
+     if (helper->fileno != -1) {
+         return lseek(helper->fileno, offset, whence);
+     }
+@@ -646,7 +646,7 @@ end:
+     Py_DECREF(result);
+ 
+     return retval;
+-#endif /* ~WITH_THREAD*/
++#endif /* ~WITH_THREAD_OFF*/
+ }
+ 
+ #if IS_SDLv1
+@@ -664,9 +664,9 @@ _pg_rw_read(SDL_RWops *context, void *ptr, size_t size, size_t maxnum)
+     PyObject *result;
+     ssize_t retval;
+ #endif /* IS_SDLv2 */
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_STATE state;
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ 
+     if (helper->fileno != -1) {
+         retval = read(helper->fileno, ptr, size * maxnum);
+@@ -680,9 +680,9 @@ _pg_rw_read(SDL_RWops *context, void *ptr, size_t size, size_t maxnum)
+     if (!helper->read)
+         return -1;
+ 
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     state = PyGILState_Ensure();
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+     result = PyObject_CallFunction(helper->read, "i", size * maxnum);
+     if (!result) {
+         PyErr_Print();
+@@ -704,9 +704,9 @@ _pg_rw_read(SDL_RWops *context, void *ptr, size_t size, size_t maxnum)
+     Py_DECREF(result);
+ 
+ end:
+-#ifdef WITH_THREAD
++#ifdef WITH_THREAD_OFF
+     PyGILState_Release(state);
+-#endif /* WITH_THREAD */
++#endif /* WITH_THREAD_OFF */
+ 
+     return retval;
+ }

@@ -105,8 +105,10 @@
           await sleep(15);
           term.pause();
         };
+        pyodide._module.canvas = document.getElementById('canvas');
       }
       window.console_ready = main();
     </script>
+    <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
   </body>
 </html>

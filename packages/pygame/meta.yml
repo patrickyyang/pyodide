@@ -1,0 +1,19 @@
+package:
+  name: pygame
+  version: 2.0.1
+source:
+  sha256: 8b1e7b63f47aafcdd8849933b206778747ef1802bd3d526aca45ed77141e4001
+  url: https://files.pythonhosted.org/packages/c7/b8/06e02c7cca7aec915839927a9aa19f749ac17a3d2bb2610b945d2de0aa96/pygame-2.0.1.tar.gz
+  patches:
+    - patches/config.patch
+
+build:
+  cflags: -s USE_SDL=2 -s USE_SDL_TTF=2 -s USE_SDL_IMAGE=2 -s USE_SDL_MIXER=2 -s USE_FREETYPE=1 -s USE_LIBPNG=1 -s USE_LIBJPEG=1
+
+# requirements:
+#   run:
+#     - numpy
+
+test:
+  imports:
+  - pygame
