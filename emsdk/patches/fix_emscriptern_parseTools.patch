@@ -1,0 +1,13 @@
+diff --git a/upstream/emscripten/src/parseTools.js b/upstream/emscripten/src/parseTools.js
+index 482f0a6..e0f616c 100644
+--- a/upstream/emscripten/src/parseTools.js
++++ b/upstream/emscripten/src/parseTools.js
+@@ -1024,7 +1024,7 @@ Please update to new syntax.`);
+       return `(function() { ${returnExpr} ${dyncall}.call(null, ${funcPtr}); })`;
+     }
+   } else {
+-    return `wasmTable.get(${funcPtr})`;
++    return `wasmTable.get(dyncallInvokeMap[${funcPtr}] || ${funcPtr})`;
+   }
+ }
+ 
