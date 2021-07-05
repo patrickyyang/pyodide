@@ -6,7 +6,7 @@ A library of helper utilities for connecting Python to the browser environment.
 
 import ast
 from asyncio import iscoroutine
-from io import StringIO
+from io import BytesIO, StringIO
 from textwrap import dedent
 from typing import Dict, List, Any, Tuple, Optional
 import tokenize
@@ -32,6 +32,27 @@ def open_url(url: str) -> StringIO:
     req.open("GET", url, False)
     req.send(None)
     return StringIO(req.response)
+
+
+async def open_bytes(url: str) -> BytesIO:
+    """
+    Fetches a given URL
+
+    Parameters
+    ----------
+    url : str
+       URL to fetch
+
+    Returns
+    -------
+    io.BytesIO
+        the contents of the URL.
+    """
+    from js import fetch
+
+    resp = await fetch(url)
+    data = await resp.arrayBuffer()
+    return BytesIO(data.to_py())
 
 
 class CodeRunner:
